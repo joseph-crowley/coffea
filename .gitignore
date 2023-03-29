@@ -130,3 +130,5 @@ dmypy.json
 
 # output plots
 plots/
+backup/
+.DS_Store
