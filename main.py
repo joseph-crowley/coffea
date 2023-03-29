@@ -1,11 +1,8 @@
-import uproot
-import os
 import glob
 from coffea import processor
-from config import BTAG_WP, hadron_flavours, branches
-from histogram import save_csv, plot_from_csv, plot_hist
+from config import BTAG_WP, hadron_flavours
+from histogram import save_csv, plot_hist, hist_ratio
 from processor import MyProcessor, MySchema
-from file_utils import dataframe_to_csv, csv_to_dataframe
 
 def process_dataset(dataset_name, file_list):
     single_fileset = {dataset_name: file_list}
@@ -25,13 +22,30 @@ def process_dataset(dataset_name, file_list):
     for flavour in hadron_flavours.values():
         deepflav_hist = result['deepflav_btag_pt_eta'].integrate('flavour', flavour)
         deepcsv_hist = result['deepcsv_btag_pt_eta'].integrate('flavour', flavour)
+        all_hist = result['no_btag_pt_eta'].integrate('flavour', flavour)
 
         # Save the histograms as CSV files
-        save_csv(deepflav_hist, deepcsv_hist, dataset_name, flavour, working_point)
+        save_csv(deepflav_hist, dataset_name, flavour, working_point, 'deepflavour')
+        save_csv(deepcsv_hist, dataset_name, flavour, working_point, 'deepcsv')
+        save_csv(all_hist, dataset_name, flavour, working_point, 'no_btag')
         
         # Plot the histograms
         plot_hist(deepflav_hist, dataset_name, flavour, working_point, 'deepflavour')
         plot_hist(deepcsv_hist, dataset_name, flavour, working_point, 'deepcsv')
+        plot_hist(all_hist, dataset_name, flavour, working_point, 'no_btag')
+
+        # take the ratio of the deepflavour and no_btag histograms to get the efficiency
+        deepflav_eff = hist_ratio(deepflav_hist, all_hist, dataset_name, flavour, working_point, 'deepflavour_eff')
+        deepcsv_eff = hist_ratio(deepcsv_hist, all_hist, dataset_name, flavour, working_point, 'deepcsv_eff')
+        
+        # Save the efficiency histograms as CSV files
+        save_csv(deepflav_eff, dataset_name, flavour, working_point, 'deepflavour_eff')
+        save_csv(deepcsv_eff, dataset_name, flavour, working_point, 'deepcsv_eff')
+        
+        # Plot the efficiency histograms
+        plot_hist(deepflav_eff, dataset_name, flavour, working_point, 'deepflavour_eff')
+        plot_hist(deepcsv_eff, dataset_name, flavour, working_point, 'deepcsv_eff')
+
 
     return result
 
@@ -44,5 +58,5 @@ if __name__ == '__main__':
         print(f"Processing dataset: {dataset_name}")
         process_dataset(dataset_name, file_list)
 
-    for csvfile in glob.glob('csv/*.csv'):
-        plot_from_csv(csvfile.replace('csv/', ''))
+    #for csvfile in glob.glob('csv/*.csv'):
+    #    plot_from_csv(csvfile.replace('csv/', ''))
