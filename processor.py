@@ -1,13 +1,14 @@
 from coffea import processor
 from coffea.nanoevents import BaseSchema
-from coffea import hist 
+from coffea import hist
 from config import BTAG_WP, hadron_flavours, branches
+import awkward as ak
 
 class MySchema(BaseSchema):
     def __init__(self, base_form):
         base_form["contents"] = {
             k: v
-            for k, v in base_form["contents"].items() 
+            for k, v in base_form["contents"].items()
             if k in branches
         }
         super().__init__(base_form)
@@ -41,45 +42,84 @@ class MyProcessor(processor.ProcessorABC):
 
     def process(self, events):
         output = self.accumulator.identity()
-    
+
         # Filter events
         selected_events = events[events.nleptons_tight_Nominal > 0]
-    
-        # Loop over jets in each event
-        ctr = 0
-        for event in selected_events:
-            ctr += 1
-            if ctr > 100: break
-            # Loop over each jet
-            for jet in range(len(event.ak4jets_pt_Nominal)):
-                # Check if the jet passes the b-tagging working point
-                deep_flavour_lmt = event.ak4jets_btagcat_Nominal[jet] % 4
-                deep_csv_lmt = (event.ak4jets_btagcat_Nominal[jet] // 4) % 4
 
-                # Fill the histograms
-                output['no_btag_pt_eta'].fill(
-                    flavour=hadron_flavours[event.ak4jets_hadronFlavour_Nominal[jet]],
-                    eta=event.ak4jets_eta_Nominal[jet],
-                    pt=event.ak4jets_pt_Nominal[jet],
-                )
+        # Create arrays for jets and their properties
+        jets_pt = ak.Array(selected_events.ak4jets_pt_Nominal)
+        jets_eta = ak.Array(selected_events.ak4jets_eta_Nominal)
+        jets_btagcat = ak.Array(selected_events.ak4jets_btagcat_Nominal)
+        jets_hadronFlavour = ak.Array(selected_events.ak4jets_hadronFlavour_Nominal)
 
-                if deep_flavour_lmt >= BTAG_WP:
-                    output['deepflav_btag_pt_eta'].fill(
-                        flavour=hadron_flavours[event.ak4jets_hadronFlavour_Nominal[jet]],
-                        eta=event.ak4jets_eta_Nominal[jet],
-                        pt=event.ak4jets_pt_Nominal[jet],
-                    )
+        # Create masks for each jet flavour
+        cjet_mask = jets_hadronFlavour == 4
+        bjets_mask = jets_hadronFlavour == 5
+        udsg_mask = jets_hadronFlavour == 0
+        
+        # Calculate btag limits
+        deep_flavour_lmt = jets_btagcat % 4
+        deep_csv_lmt = (jets_btagcat // 4) % 4
 
-                if deep_csv_lmt >= BTAG_WP:
-                    output['deepcsv_btag_pt_eta'].fill(
-                        flavour=hadron_flavours[event.ak4jets_hadronFlavour_Nominal[jet]],
-                        eta=event.ak4jets_eta_Nominal[jet],
-                        pt=event.ak4jets_pt_Nominal[jet],
-                    )
-             
+
+        # Fill histograms
+        output['no_btag_pt_eta'].fill(
+            flavour = "b",
+            eta=ak.flatten(jets_eta),
+            pt=ak.flatten(jets_pt),
+        )
+        
+        output['no_btag_pt_eta'].fill(
+            flavour = "c",
+            eta=ak.flatten(jets_eta),
+            pt=ak.flatten(jets_pt),
+        )
+        
+        output['no_btag_pt_eta'].fill(
+            flavour = "udsg",
+            eta=ak.flatten(jets_eta),
+            pt=ak.flatten(jets_pt),
+        )
+        
+        deepflav_btag_mask = deep_flavour_lmt >= BTAG_WP
+        output['deepflav_btag_pt_eta'].fill(
+            flavour = "b",            
+            eta=ak.flatten(jets_eta[bjets_mask & deepflav_btag_mask]),
+            pt=ak.flatten(jets_pt[bjets_mask & deepflav_btag_mask]),
+        )
+        
+        output['deepflav_btag_pt_eta'].fill(
+            flavour = "c",
+            eta=ak.flatten(jets_eta[cjet_mask & deepflav_btag_mask]),
+            pt=ak.flatten(jets_pt[cjet_mask & deepflav_btag_mask]),
+        )
+        
+        output['deepflav_btag_pt_eta'].fill(
+            flavour = "udsg",
+            eta=ak.flatten(jets_eta[udsg_mask & deepflav_btag_mask]),
+            pt=ak.flatten(jets_pt[udsg_mask & deepflav_btag_mask]),
+        )
+        
+        deepcsv_btag_mask = deep_csv_lmt >= BTAG_WP
+        output['deepcsv_btag_pt_eta'].fill(
+            flavour = "b",
+            eta=ak.flatten(jets_eta[bjets_mask & deepcsv_btag_mask]),
+            pt=ak.flatten(jets_pt[bjets_mask & deepcsv_btag_mask]),
+        )
+
+        output['deepcsv_btag_pt_eta'].fill(
+            flavour = "c",
+            eta=ak.flatten(jets_eta[cjet_mask & deepcsv_btag_mask]),
+            pt=ak.flatten(jets_pt[cjet_mask & deepcsv_btag_mask]),
+        )
+        
+        output['deepcsv_btag_pt_eta'].fill(
+            flavour = "udsg",
+            eta=ak.flatten(jets_eta[udsg_mask & deepcsv_btag_mask]),
+            pt=ak.flatten(jets_pt[udsg_mask & deepcsv_btag_mask]),
+        )
+
         return output
-    
+
     def postprocess(self, accumulator):
         return accumulator
-
-    
