@@ -51,6 +51,10 @@ class MyProcessor(processor.ProcessorABC):
         jets_eta = ak.Array(selected_events.ak4jets_eta_Nominal)
         jets_btagcat = ak.Array(selected_events.ak4jets_btagcat_Nominal)
         jets_hadronFlavour = ak.Array(selected_events.ak4jets_hadronFlavour_Nominal)
+        event_weights = ak.Array(selected_events.event_wgt_SimOnly_Nominal)
+        
+        # Broadcast event weights to the same shape as jets_pt
+        event_weights = ak.broadcast_arrays(event_weights, jets_pt)[0]
 
         # Create masks for each jet flavour
         cjet_mask = jets_hadronFlavour == 4
@@ -67,18 +71,21 @@ class MyProcessor(processor.ProcessorABC):
             flavour = "b",
             eta=ak.flatten(jets_eta),
             pt=ak.flatten(jets_pt),
+            weight=ak.flatten(event_weights),
         )
         
         output['no_btag_pt_eta'].fill(
             flavour = "c",
             eta=ak.flatten(jets_eta),
             pt=ak.flatten(jets_pt),
+            weight=ak.flatten(event_weights),
         )
         
         output['no_btag_pt_eta'].fill(
             flavour = "udsg",
             eta=ak.flatten(jets_eta),
             pt=ak.flatten(jets_pt),
+            weight=ak.flatten(event_weights),
         )
         
         deepflav_btag_mask = deep_flavour_lmt >= BTAG_WP
@@ -86,18 +93,21 @@ class MyProcessor(processor.ProcessorABC):
             flavour = "b",            
             eta=ak.flatten(jets_eta[bjets_mask & deepflav_btag_mask]),
             pt=ak.flatten(jets_pt[bjets_mask & deepflav_btag_mask]),
+            weight=ak.flatten(event_weights[bjets_mask & deepflav_btag_mask]),
         )
         
         output['deepflav_btag_pt_eta'].fill(
             flavour = "c",
             eta=ak.flatten(jets_eta[cjet_mask & deepflav_btag_mask]),
             pt=ak.flatten(jets_pt[cjet_mask & deepflav_btag_mask]),
+            weight=ak.flatten(event_weights[cjet_mask & deepflav_btag_mask]),
         )
         
         output['deepflav_btag_pt_eta'].fill(
             flavour = "udsg",
             eta=ak.flatten(jets_eta[udsg_mask & deepflav_btag_mask]),
             pt=ak.flatten(jets_pt[udsg_mask & deepflav_btag_mask]),
+            weight=ak.flatten(event_weights[udsg_mask & deepflav_btag_mask]),
         )
         
         deepcsv_btag_mask = deep_csv_lmt >= BTAG_WP
@@ -105,18 +115,21 @@ class MyProcessor(processor.ProcessorABC):
             flavour = "b",
             eta=ak.flatten(jets_eta[bjets_mask & deepcsv_btag_mask]),
             pt=ak.flatten(jets_pt[bjets_mask & deepcsv_btag_mask]),
+            weight=ak.flatten(event_weights[bjets_mask & deepcsv_btag_mask]),
         )
 
         output['deepcsv_btag_pt_eta'].fill(
             flavour = "c",
             eta=ak.flatten(jets_eta[cjet_mask & deepcsv_btag_mask]),
             pt=ak.flatten(jets_pt[cjet_mask & deepcsv_btag_mask]),
+            weight=ak.flatten(event_weights[cjet_mask & deepcsv_btag_mask]),
         )
         
         output['deepcsv_btag_pt_eta'].fill(
             flavour = "udsg",
             eta=ak.flatten(jets_eta[udsg_mask & deepcsv_btag_mask]),
             pt=ak.flatten(jets_pt[udsg_mask & deepcsv_btag_mask]),
+            weight=ak.flatten(event_weights[udsg_mask & deepcsv_btag_mask]),
         )
 
         return output
