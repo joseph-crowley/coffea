@@ -1,4 +1,4 @@
-BTAG_WP = 1
+BTAG_WP = 2
 hadron_flavours = {0: "udsg", 4: "c", 5: "b"}
 branches = [
     "nleptons_fakeable_Nominal",
@@ -18,3 +18,5 @@ branches = [
     "ak4jets_phi_Nominal",
     "ak4jets_genjet_pt_Nominal",
 ]
+
+ROOT_OUTPUT_DIR = "/home/users/crowley/code/coffea/root"

@@ -45,15 +45,10 @@ def plot_from_csv(csv_filename):
     
     # make a coffea histogram from the numpy arrays
     histo = hist.Hist(
-                'Counts',
+                'Events',
                 hist.Bin('eta', 'eta', 50, -2.5, 2.5),
                 hist.Bin('pt', 'pT', 100, 0, 300),
                 )
-
-    
-    print(f"eta_vals shape: {eta_vals.shape}")
-    print(f"pt_vals shape: {pt_vals.shape}")
-    print(f"counts shape: {counts.shape}")
     
     # fill the histogram with the counts
     for i in range(len(eta_vals) - 1):
@@ -71,12 +66,16 @@ def plot_from_csv(csv_filename):
     plt.close(fig)
 
 
-def plot_hist(histo, dataset_name, flavour, working_point, btag_algo):
+def plot_hist(histo, dataset_name, flavour, working_point, btag_algo, zlabel):
     filename = f"{dataset_name}_{btag_algo}_pt_eta_{flavour}_btag_{working_point}.png"
     title = f"{dataset_name} {btag_algo} {flavour} {working_point}"
     fig, ax = plt.subplots()
-    hist.plot2d(histo, xaxis='eta', xoverflow='all', ax=ax)
+    hist.plot2d(histo, xaxis='pt', xoverflow='all', ax=ax)
+
+    ax.set_xlabel('p_{T} [GeV]')
+    ax.set_ylabel('#eta')
     ax.set_title(title)
+    ax.collections[0].colorbar.set_label(zlabel)
 
     output_dir = 'plots'
     os.makedirs(output_dir, exist_ok=True)
@@ -96,12 +95,12 @@ def hist_ratio(histo1, histo2, dataset_name, flavour, working_point, btag_algo):
 
     fig, ax = plt.subplots()
     im = ax.imshow(ratio.T, origin='lower', aspect='auto',
-                   extent=[histo1.axis('eta').edges()[0], histo1.axis('eta').edges()[-1],
-                           histo1.axis('pt').edges()[0], histo1.axis('pt').edges()[-1]])
+                   extent=[histo1.axis('pt').edges()[0], histo1.axis('pt').edges()[-1],
+                           histo1.axis('eta').edges()[0], histo1.axis('eta').edges()[-1]])
     cbar = fig.colorbar(im, ax=ax)
-    cbar.ax.set_ylabel('Ratio')
-    ax.set_xlabel('eta')
-    ax.set_ylabel('pt')
+    cbar.ax.set_ylabel('Efficiency')
+    ax.set_xlabel('pt')
+    ax.set_ylabel('eta')
     ax.set_title(title)
 
     output_dir = 'plots'
@@ -111,7 +110,7 @@ def hist_ratio(histo1, histo2, dataset_name, flavour, working_point, btag_algo):
 
     # return the ratio as a coffea histogram
     ratio_hist = hist.Hist(
-                'Counts',   
+                'Efficiency',   
                 hist.Bin('eta', 'eta', 50, -2.5, 2.5),
                 hist.Bin('pt', 'pT', 100, 0, 300),
                 )
@@ -119,6 +118,6 @@ def hist_ratio(histo1, histo2, dataset_name, flavour, working_point, btag_algo):
     # fill the histogram with the ratio
     for i in range(len(ratio)):
         for j in range(len(ratio[i])):
-            ratio_hist.fill(eta=histo1.axes()[0].edges()[i], pt=histo1.axes()[1].edges()[j], weight=ratio[i,j])
+            ratio_hist.fill(eta=histo1.axes('eta')[0].edges()[i], pt=histo1.axes('pt')[0].edges()[j], weight=ratio[i,j])
     
     return ratio_hist
