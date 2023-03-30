@@ -3,22 +3,24 @@ from coffea import processor
 from config import BTAG_WP, hadron_flavours
 from histogram import save_csv, plot_hist, hist_ratio
 from processor import MyProcessor, MySchema
-from concurrent.futures import ProcessPoolExecutor
+#from concurrent.futures import ProcessPoolExecutor
 
 def process_dataset_wrapper(args):
     return process_dataset(*args)
 
-def process_dataset(dataset_name, file_list):
+def process_dataset(dataset_name, file_list, result = None):
+    print(f"Processing dataset: {dataset_name}")
     single_fileset = {dataset_name: file_list}
-    result = processor.run_uproot_job(
-        single_fileset,
-        treename="SkimTree",
-        processor_instance=MyProcessor(),
-        executor=processor.futures_executor,
-        executor_args={'schema': MySchema, 'workers': 24}, # Adjust the number of workers as needed
-        chunksize=50000,
-        maxchunks=None,
-    )
+    if result is None:
+        result = processor.run_uproot_job(
+            single_fileset,
+            treename="SkimTree",
+            processor_instance=MyProcessor(),
+            executor=processor.futures_executor,
+            executor_args={'schema': MySchema, 'workers': 24}, # Adjust the number of workers as needed
+            chunksize=50000,
+            maxchunks=None,
+        )
 
     # Create a ROOT file to save the histograms
     working_point = ["NONE",'Loose', "Medium","Tight"][BTAG_WP] 
@@ -70,25 +72,24 @@ if __name__ == '__main__':
         ]
     }
 
-    # add an "all_samples" dataset that combines all the other datasets
-    fileset["all_samples"] = []
-    for dataset_name, file_glob_list in fileset.items():
-        if dataset_name == "all_samples":
-            continue
-        for file_glob in file_glob_list:
-            fileset["all_samples"].append(file_glob)
-
+#    # add an "all_samples" dataset that combines all the other datasets
+#    fileset["all_samples"] = []
+#    for dataset_name, file_glob_list in fileset.items():
+#        if dataset_name == "all_samples":
+#            continue
+#        for file_glob in file_glob_list:
+#            fileset["all_samples"].append(file_glob)
 
     # Loop over each dataset
     #tasks = []
     results = []
+    all_files = []
     for dataset_name, file_glob_list in fileset.items():
-        print(f"Processing dataset: {dataset_name}")
-
         # get the list of files for this dataset
         file_list = []
         for file_glob in file_glob_list:
             file_list.extend(glob.glob(file_glob))
+        all_files.extend(file_list)
 
         # Process the dataset
         results.append(process_dataset(dataset_name, file_list))
@@ -98,7 +99,10 @@ if __name__ == '__main__':
 #    with ProcessPoolExecutor() as executor:
 #        results = executor.map(process_dataset_wrapper, tasks)
 
-    # Print the results
-    for result in results:
-        print(result)
-
+    # add the results
+    total_result = results[0]
+    for result in results[1:]:
+        total_result += result
+        
+    # Process the combined dataset
+    process_dataset("all_samples", all_files, total_result)
