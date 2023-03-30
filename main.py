@@ -1,8 +1,8 @@
 import glob
 from coffea import processor
-from config import BTAG_WP, hadron_flavours, ROOT_OUTPUT_DIR
-from histogram import save_csv, plot_hist, hist_ratio
-from processor import MyProcessor, MySchema, save_accumulator_as_root
+from config import BTAG_WP, hadron_flavours, ROOT_OUTPUT_DIR, fileset
+from histogram import plot_hist, plot_histogram_ratio
+from processor import MyProcessor, MySchema
 import uproot
 #from concurrent.futures import ProcessPoolExecutor
 
@@ -12,22 +12,18 @@ def process_dataset_wrapper(args):
 def process_dataset(dataset_name, file_list, result = None):
     print(f"Processing dataset: {dataset_name}")
 
-    # Create a ROOT file to save the histograms
-    working_point = ["NONE",'Loose', "Medium","Tight"][BTAG_WP] 
 
     single_fileset = {dataset_name: file_list}
     if result is None:
         result = processor.run_uproot_job(
             single_fileset,
             treename="SkimTree",
-            processor_instance=MyProcessor(output_file=ROOT_OUTPUT_DIR + f"/histograms_{dataset_name}_{working_point}.root"),
+            processor_instance=MyProcessor(output_file=ROOT_OUTPUT_FILE),
             executor=processor.futures_executor,
             executor_args={'schema': MySchema, 'workers': 24}, # Adjust the number of workers as needed
             chunksize=50000,
             maxchunks=None,
         )
-
-        #save_accumulator_as_root(result, f"histograms_{dataset_name}_{working_point}.root")
 
     # Loop over each jet flavour
     for flavour in hadron_flavours.values():
@@ -35,47 +31,26 @@ def process_dataset(dataset_name, file_list, result = None):
         deepcsv_hist = result['deepcsv_btag_pt_eta'].integrate('flavour', flavour)
         all_hist = result['no_btag_pt_eta'].integrate('flavour', flavour)
 
-        ## Save the histograms as CSV files
-        #save_csv(deepflav_hist, dataset_name, flavour, working_point, 'deepflavour')
-        #save_csv(deepcsv_hist, dataset_name, flavour, working_point, 'deepcsv')
-        #save_csv(all_hist, dataset_name, flavour, working_point, 'no_btag')
-        
         # Plot the histograms
         plot_hist(deepflav_hist, dataset_name, flavour, working_point, 'deepflavour', 'Number of b Jets')
         plot_hist(deepcsv_hist, dataset_name, flavour, working_point, 'deepcsv', 'Number of b Jets')
         plot_hist(all_hist, dataset_name, flavour, working_point, 'no_btag', 'Number of b Jets')
 
-        # take the ratio of the deepflavour and no_btag histograms to get the efficiency
-        deepflav_eff = hist_ratio(deepflav_hist, all_hist, dataset_name, flavour, working_point, 'deepflavour_eff')
-        deepcsv_eff = hist_ratio(deepcsv_hist, all_hist, dataset_name, flavour, working_point, 'deepcsv_eff')
-
-        # take the ratio of the efficiency histograms to get the scale factor
-        deepflav_deepcsv_sf = hist_ratio(deepflav_eff, deepcsv_eff, dataset_name, flavour, working_point, 'deepflavour_sf')
-        
-        ## Save the efficiency histograms as CSV files
-        #save_csv(deepflav_eff, dataset_name, flavour, working_point, 'deepflavour_eff')
-        #save_csv(deepcsv_eff, dataset_name, flavour, working_point, 'deepcsv_eff')
-        #save_csv(deepflav_deepcsv_sf, dataset_name, flavour, working_point, 'deepflavour_deepcsv_ratio')
-        
-        # Plot the efficiency histograms
-        plot_hist(deepflav_eff, dataset_name, flavour, working_point, 'deepflavour_eff', 'B-tagging Efficiency')
-        plot_hist(deepcsv_eff, dataset_name, flavour, working_point, 'deepcsv_eff', 'B-tagging Efficiency')
-        plot_hist(deepflav_deepcsv_sf, dataset_name, flavour, working_point, 'deepflavour_deepcsv_ratio', 'DeepFlavour/DeepCSV Scale Factor')
-
     return result
 
-if __name__ == '__main__':
-    fileset = {
-        "ttW": [
-            "/ceph/cms/store/group/tttt/Worker/usarica/output/SimJetEffs/230309/2018/TTW_*.root"
-        ],
-        "tt_2l2nu": [
-            "/ceph/cms/store/group/tttt/Worker/usarica/output/SimJetEffs/230309/2018/TT_2l2nu_*.root"
-        ],
-        "DY": [
-            "/ceph/cms/store/group/tttt/Worker/usarica/output/SimJetEffs/230309/2018/DY_*.root"
-        ]
-    }
+def plot_ratio(file_path, hist1_name, hist2_name, dataset_name, flavour, working_point, btag_algo, ztitle):
+    # Open the ROOT file and get the histograms
+    file = uproot.open(file_path)
+    hist1 = file[hist1_name]
+    hist2 = file[hist2_name]
+
+    plot_histogram_ratio(hist1, hist2, dataset_name, flavour, working_point, btag_algo, ztitle)
+
+def run():
+    global ROOT_OUTPUT_FILE
+    global working_point
+    
+    working_point = ["NONE",'Loose', "Medium","Tight"][BTAG_WP] 
 
 #    # add an "all_samples" dataset that combines all the other datasets
 #    fileset["all_samples"] = []
@@ -89,7 +64,11 @@ if __name__ == '__main__':
     #tasks = []
     results = []
     all_files = []
+    root_output_files = []
     for dataset_name, file_glob_list in fileset.items():
+        ROOT_OUTPUT_FILE = ROOT_OUTPUT_DIR + f"/histograms_{dataset_name}_{working_point}.root"
+        root_output_files.append(ROOT_OUTPUT_FILE)
+
         # get the list of files for this dataset
         file_list = []
         for file_glob in file_glob_list:
@@ -111,3 +90,29 @@ if __name__ == '__main__':
         
     # Process the combined dataset
     process_dataset("all_samples", all_files, total_result)
+
+    # Plot the efficiencies
+    print(f'Plotting efficiencies for {working_point} working point')
+    for flavour in hadron_flavours.values():
+        for root_output_file in root_output_files:
+            plot_ratio(root_output_file, 'deepflav_btag_pt_eta', 'no_btag_pt_eta', dataset_name, flavour, working_point, 'deepflavour', 'B-tagging Efficiency')
+            plot_ratio(root_output_file, 'deepcsv_btag_pt_eta', 'no_btag_pt_eta', dataset_name, flavour, working_point, 'deepcsv', 'B-tagging Efficiency')
+
+def plots_only():
+    global ROOT_OUTPUT_FILE
+    global working_point
+    
+    working_point = ["NONE",'Loose', "Medium","Tight"][BTAG_WP] 
+
+    # Loop over each dataset
+    for dataset_name, _ in fileset.items():
+        ROOT_OUTPUT_FILE = ROOT_OUTPUT_DIR + f"/histograms_{dataset_name}_{working_point}.root"
+
+        # Plot the efficiencies
+        for flavour in hadron_flavours.values():
+            plot_ratio(ROOT_OUTPUT_FILE, 'deepflav_btag_pt_eta', 'no_btag_pt_eta', dataset_name, flavour, working_point, 'deepflavour', 'B-tagging Efficiency')
+            plot_ratio(ROOT_OUTPUT_FILE, 'deepcsv_btag_pt_eta', 'no_btag_pt_eta', dataset_name, flavour, working_point, 'deepcsv', 'B-tagging Efficiency')
+
+            
+if __name__ == "__main__":
+    run()

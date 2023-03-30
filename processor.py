@@ -1,7 +1,7 @@
 from coffea import processor
 from coffea.nanoevents import BaseSchema
 from coffea import hist
-from config import BTAG_WP, hadron_flavours, branches
+from config import BTAG_WP, branches, ROOT_OUTPUT_DIR, hist_configs
 import awkward as ak
 import numpy as np
 import uproot
@@ -18,25 +18,25 @@ class MySchema(BaseSchema):
 
 class MyProcessor(processor.ProcessorABC):
     def __init__(self, **kwargs):
-        self.output_file = kwargs.pop('output_file', 'histograms.root')
+        self.output_file = kwargs.pop('output_file', ROOT_OUTPUT_DIR + '/histograms.root')
         self._accumulator = processor.dict_accumulator({
             'deepflav_btag_pt_eta': hist.Hist(
                 'Events',
                 hist.Cat('flavour', 'Jet Flavour'),
-                hist.Bin('eta', 'eta', 50, -2.5, 2.5),
-                hist.Bin('pt', 'pT', 100, 0, 300),
+                hist.Bin('eta', hist_configs['eta']['title'], hist_configs['eta']['bins'], *hist_configs['eta']['range']),
+                hist.Bin('pt', hist_configs['pt']['title'], hist_configs['pt']['bins'], *hist_configs['pt']['range']),
             ),
             'deepcsv_btag_pt_eta': hist.Hist(
                 'Events',
                 hist.Cat('flavour', 'Jet Flavour'),
-                hist.Bin('eta', 'eta', 50, -2.5, 2.5),
-                hist.Bin('pt', 'pT', 100, 0, 300),
+                hist.Bin('eta', hist_configs['eta']['title'], hist_configs['eta']['bins'], *hist_configs['eta']['range']),
+                hist.Bin('pt', hist_configs['pt']['title'], hist_configs['pt']['bins'], *hist_configs['pt']['range']),
             ),
             'no_btag_pt_eta': hist.Hist(
                 'Events',
                 hist.Cat('flavour', 'Jet Flavour'),
-                hist.Bin('eta', 'eta', 50, -2.5, 2.5),
-                hist.Bin('pt', 'pT', 100, 0, 300),
+                hist.Bin('eta', hist_configs['eta']['title'], hist_configs['eta']['bins'], *hist_configs['eta']['range']),
+                hist.Bin('pt', hist_configs['pt']['title'], hist_configs['pt']['bins'], *hist_configs['pt']['range']),
             ),
         })
 

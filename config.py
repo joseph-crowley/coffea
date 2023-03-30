@@ -20,3 +20,29 @@ branches = [
 ]
 
 ROOT_OUTPUT_DIR = "/home/users/crowley/code/coffea/root"
+
+# set configs for histograms
+hist_configs = {
+    'eta': {
+        'title': 'eta',
+        'bins': 26,
+        'range': (-2.5, 2.5),
+    },
+    'pt': {
+        'title': 'pT',
+        'bins': 11,
+        'range': (20, 200),
+    }
+}
+
+fileset = {
+    "ttW": [
+        "/ceph/cms/store/group/tttt/Worker/usarica/output/SimJetEffs/230309/2018/TTW_*.root"
+    ],
+    "tt_2l2nu": [
+        "/ceph/cms/store/group/tttt/Worker/usarica/output/SimJetEffs/230309/2018/TT_2l2nu_*.root"
+    ],
+    "DY": [
+        "/ceph/cms/store/group/tttt/Worker/usarica/output/SimJetEffs/230309/2018/DY_*.root"
+    ]
+}
