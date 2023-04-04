@@ -1,4 +1,4 @@
-BTAG_WP = 2
+BTAG_WP = 3
 hadron_flavours = {0: "udsg", 4: "c", 5: "b"}
 branches = [
     "nleptons_fakeable_Nominal",

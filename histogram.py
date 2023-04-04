@@ -10,17 +10,17 @@ def plot_hist(histo, dataset_name, flavour, working_point, btag_algo, zlabel):
     title = f"{dataset_name} {btag_algo} {flavour} {working_point}"
 
     fig, ax = plt.subplots()
-    hist.plot2d(histo, xaxis='pt', xoverflow='all', ax=ax)
+    hist.plot2d(histo, xaxis='eta', xoverflow='all', ax=ax)
 
-    ax.set_xlabel('p_{T} [GeV]')
-    ax.set_ylabel('#eta')
+    ax.set_xlabel('#eta')
+    ax.set_ylabel('p_{T} [GeV]')
     ax.set_title(title)
     ax.collections[0].colorbar.set_label(zlabel)
 
     # calculate the min and max for the colorbar
     zmin = histo.values()[()].min()
     zmax = histo.values()[()].max()
-    ax.collections[0].set_clim(zmin, zmax)
+    ax.collections[0].set_clim(zmin, 10*zmax)
 
     output_dir = 'plots'
     os.makedirs(output_dir, exist_ok=True)
@@ -45,13 +45,26 @@ def plot_histogram_ratio(hist1, hist2, dataset_name, flavour, working_point, bta
 
     fig, ax = plt.subplots()
     c = ax.pcolormesh(x_centers, y_centers, ratio.T, cmap="viridis")
-    ax.set_xlabel("Pt (GeV/c)")
-    ax.set_ylabel("Eta")
+    ax.set_xlabel("#eta")
+    ax.set_ylabel("p_{T} (GeV/c)")
     ax.set_title(title)
     fig.colorbar(c, ax=ax, label=ztitle)
 
+    # to set the colorbar range
+    zmin = ratio.min()
+    zmax = ratio.max()
+    zrange = zmax - zmin
+
+    # set the colorbar range to be 10% larger than the min and max values
+    plot_min = max([zmin - 0.1*zrange,0.01])
+    plot_max = min([zmax + 0.1*zrange,1])
+
+    c.set_clim(plot_min, plot_max)
+
     # Save the plot to a file
-    plt.savefig(filename, dpi=300)
+    output_dir = 'plots'
+    os.makedirs(output_dir, exist_ok=True)
+    plt.savefig(os.path.join(output_dir, filename), dpi=300)
 
     # save the ratio histogram as TH2F using uproot
     nbins_x = len(x_centers)
@@ -64,11 +77,16 @@ def plot_histogram_ratio(hist1, hist2, dataset_name, flavour, working_point, bta
         for iy in range(nbins_y):
             th2f.SetBinContent(ix + 1, iy + 1, ratio[ix, iy])
 
-    root_filename = "existing_file.root"
-    with uproot.open(root_filename, mode="r+") as f:
-        # Delete the existing TH2F with the same name, if it exists
-        if th2f_name in f:
-            del f[th2f_name]
+    # get a ztitle with only alphanumeric characters
+    ztitle_alphanumeric = ztitle.lower()
+    for c in ztitle_alphanumeric:
+        if not c.isalnum():
+            ztitle_alphanumeric = ztitle_alphanumeric.replace(c, '')
 
-        # Write the new TH2F
-        f[th2f_name] = uproot.to_writable(th2f)
+    root_filename = f'root/{ztitle_alphanumeric}histograms_{dataset_name}_{working_point}.root'
+    os.makedirs(os.path.dirname(root_filename), exist_ok=True)
+
+    with uproot.recreate(root_filename) as f:
+        f[th2f_name] = th2f
+        
+    plt.close(fig)
